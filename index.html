@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Slap Battle Game</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @keyframes handSlapAnimation {
+      0% { opacity: 0; transform: translateX(8px) rotate(-12deg) scale(0.85); }
+      18% { opacity: 1; }
+      58% { opacity: 1; transform: translateX(-82px) rotate(8deg) scale(1.08); }
+      100% { opacity: 0; transform: translateX(-90px) rotate(12deg) scale(0.96); }
+    }
+
+    @keyframes getHitAnimation {
+      0% { transform: rotate(0deg) scale(1); }
+      20% { transform: rotate(20deg) scale(0.9) translateX(30px); filter: brightness(1.5) drop-shadow(0 0 15px red); }
+      40% { transform: rotate(-15deg) scale(1.05); }
+      100% { transform: rotate(0deg) scale(1); }
+    }
+
+    @keyframes bonusHandSlapAnimation {
+      0% { opacity: 0; transform: translateX(8px) rotate(-12deg) scale(0.8); filter: drop-shadow(0 0 0 #facc15); }
+      18% { opacity: 1; }
+      48% { opacity: 1; transform: translateX(-88px) rotate(18deg) scale(1.25); filter: drop-shadow(0 0 18px #facc15); }
+      62% { opacity: 1; transform: translateX(-78px) rotate(-8deg) scale(1.08); }
+      100% { opacity: 0; transform: translateX(-100px) rotate(12deg) scale(1); filter: drop-shadow(0 0 4px #fb923c); }
+    }
+
+    @keyframes bonusTargetHit {
+      0%, 100% { transform: translateX(0) rotate(0) scale(1); filter: none; }
+      18% { transform: translateX(12px) rotate(10deg) scale(0.88); filter: brightness(1.8) drop-shadow(0 0 20px #facc15); }
+      42% { transform: translateX(-8px) rotate(-8deg) scale(1.12); filter: brightness(1.5) drop-shadow(0 0 24px #fb923c); }
+      65% { transform: translateX(5px) rotate(4deg) scale(0.96); }
+    }
+
+    @keyframes bonusBurst {
+      0% { opacity: 0; transform: scale(0.35); }
+      30% { opacity: 1; }
+      100% { opacity: 0; transform: scale(1.5); }
+    }
+
+    @keyframes bonusImpact {
+      0% { opacity: 0; transform: scale(0.25) rotate(-18deg); }
+      45% { opacity: 1; transform: scale(1.3) rotate(8deg); }
+      70% { opacity: 1; transform: scale(1) rotate(-4deg); }
+      100% { opacity: 0; transform: scale(1.2) rotate(0); }
+    }
+
+    @keyframes starPop {
+      0% { opacity: 1; transform: translate(0, 0) scale(0.5) rotate(0deg); }
+      100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(1.8) rotate(180deg); }
+    }
+
+    .hand-slapping {
+      animation: handSlapAnimation 0.38s ease-out forwards;
+    }
+
+    .bonus-slap {
+      animation: bonusHandSlapAnimation 0.62s cubic-bezier(.2,.8,.2,1) forwards;
+    }
+
+    .bonus-hit {
+      animation: bonusTargetHit 0.62s ease-out;
+    }
+
+    .bonus-burst::after {
+      content: "";
+      position: absolute;
+      inset: 8%;
+      border: 3px solid rgb(250 204 21 / 85%);
+      border-radius: 50%;
+      background: radial-gradient(circle, rgb(250 204 21 / 30%) 0, rgb(251 146 60 / 18%) 38%, transparent 72%);
+      box-shadow: 0 0 28px rgb(250 204 21 / 70%), inset 0 0 24px rgb(251 146 60 / 40%);
+      pointer-events: none;
+      animation: bonusBurst 0.65s ease-out forwards;
+    }
+
+    .bonus-impact {
+      animation: bonusImpact 0.65s cubic-bezier(.2,.8,.2,1) forwards;
+      color: #fde047;
+      text-shadow: 0 0 10px #f97316, 0 0 26px #facc15, 0 5px 5px rgb(0 0 0 / 80%);
+    }
+
+    .target-speech {
+      position: absolute;
+      z-index: 30;
+      left: 50%;
+      bottom: calc(100% + 14px);
+      width: max-content;
+      max-width: min(250px, 72vw);
+      transform: translateX(-50%);
+      border-radius: 16px;
+      background: linear-gradient(145deg, rgb(30 41 59 / 98%), rgb(15 23 42 / 98%));
+      box-shadow: 0 10px 28px rgb(0 0 0 / 35%), 0 0 18px rgb(251 191 36 / 12%);
+      animation: speechAppear 0.24s ease-out both;
+    }
+
+    .target-speech-emphasized {
+      scale: 1.05;
+    }
+
+    .target-speech::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      width: 12px;
+      height: 12px;
+      background: #0f172a;
+      transform: translate(-50%, -50%) rotate(45deg);
+      border-right: 1px solid rgb(251 191 36 / 45%);
+      border-bottom: 1px solid rgb(251 191 36 / 45%);
+    }
+
+    #targetImage {
+      object-position: center 32%;
+    }
+
+    @keyframes speechAppear {
+      from { opacity: 0; margin-bottom: -8px; }
+      to { opacity: 1; margin-bottom: 0; }
+    }
+
+    .getting-hit {
+      animation: getHitAnimation 0.3s ease-in-out;
+    }
+
+    .hit-star {
+      position: absolute;
+      pointer-events: none;
+      animation: starPop 0.5s ease-out forwards;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex flex-col justify-between items-center p-4 font-sans select-none overflow-x-hidden">
+
+  <span id="damageText" class="hidden" aria-hidden="true">0%</span>
+
+  <main class="relative w-full max-w-md h-80 bg-slate-800/50 rounded-3xl border-2 border-slate-700/60 my-auto flex flex-col items-center justify-between p-6 overflow-hidden shadow-2xl">
+    
+    <!-- Hit Stars Container -->
+    <div id="effectsContainer" class="absolute inset-0 pointer-events-none z-30"></div>
+
+    <!-- Slap Impact Text Overlay -->
+    <div id="impactText" class="absolute top-24 font-black text-4xl text-yellow-300 opacity-0 transition-all duration-150 transform scale-50 pointer-events-none z-40 drop-shadow-[0_5px_5px_rgba(0,0,0,0.8)]">
+      SLAP!
+    </div>
+
+    <!-- Battle Characters Stage -->
+    <div id="battleStage" class="relative w-full flex items-center justify-around my-auto">
+      <!-- Icon 1 (Target) -->
+      <div class="relative flex flex-col items-center z-10">
+        <div id="targetDialogBox" role="status" aria-live="polite" class="target-speech hidden border border-amber-400/50 p-3 text-center">
+          <p id="targetDialogText" class="text-sm md:text-base font-bold leading-relaxed text-amber-200"></p>
+        </div>
+        <div id="icon1" role="button" tabindex="0" aria-label="Slap the target" class="relative text-6xl md:text-7xl transition-all duration-200 cursor-pointer flex items-center justify-center min-w-[70px] min-h-[70px]">
+          <img id="targetImage" src="0t10.jpg" alt="Target at 0% damage" class="h-28 w-28 shrink-0 object-contain">
+          <span id="dizzyOverlay" class="absolute -top-4 -right-2 text-xl text-yellow-300 opacity-0 transition-opacity">💫</span>
+        </div>
+        <span class="mt-2 text-[10px] font-bold bg-red-950/80 text-red-300 border border-red-800/50 px-2 py-0.5 rounded-full">KoKoe</span>
+      </div>
+
+      <!-- Icon 2 (Slapper) -->
+      <div class="flex flex-col items-center z-10">
+        <div id="icon2" class="relative flex min-h-[70px] min-w-[70px] items-center justify-center transition-all">
+          <div id="dialogBox" role="status" aria-live="polite" class="target-speech hidden border border-amber-400/50 p-3 text-center">
+            <p id="dialogText" class="text-sm md:text-base font-bold leading-relaxed text-amber-200"></p>
+          </div>
+          <img id="slapperImage" src="h0t9.jpg" alt="Slapper at 0% damage" class="h-28 w-28 shrink-0 object-cover">
+        </div>
+        <span class="mt-2 text-[10px] font-bold bg-amber-950/80 text-amber-300 border border-amber-800/50 px-2 py-0.5 rounded-full">PaPyy</span>
+      </div>
+
+      <div id="slapHand" aria-hidden="true" class="absolute left-[58%] top-[40%] z-20 w-28 opacity-0 pointer-events-none">
+        <svg viewBox="0 0 150 90" class="h-auto w-full overflow-visible drop-shadow-lg" xmlns="http://www.w3.org/2000/svg">
+          <path d="M146 34H61V57H146C149 57 150 54 150 51V40C150 36 149 34 146 34Z" fill="#d99a6c" stroke="#713f2b" stroke-width="3" stroke-linejoin="round"/>
+          <path d="M62 34 49 27 30 8C27 5 22 5 19 8 16 11 17 15 20 18L37 36 18 20C14 17 10 18 7 21 4 24 5 29 9 32L29 48 14 37C10 34 5 36 3 40 1 44 3 48 7 51L28 64 18 58C13 55 8 58 7 63 6 67 9 71 13 73L38 83C47 87 58 83 63 76L70 65 62 57Z" fill="#e8b28a" stroke="#713f2b" stroke-width="3" stroke-linejoin="round"/>
+          <path d="m40 48 13 9m-24 7 12 7" fill="none" stroke="#bd805e" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="w-full max-w-md flex flex-col items-center gap-3 mb-2">
+    <button id="tapBtn" type="button" class="w-full py-4 bg-gradient-to-r from-amber-500 to-red-500 hover:from-amber-400 hover:to-red-400 active:scale-95 text-slate-950 font-black text-xl rounded-2xl shadow-lg shadow-amber-500/20 border-2 border-amber-300 transition-all cursor-pointer uppercase tracking-wider flex items-center justify-center gap-2">
+      <i class="fa-solid fa-hand"></i> <span id="btnText">ပါးချည်ချပစ်မယ်</span>
+    </button>
+
+    <button id="resetBtn" type="button" class="text-xs text-slate-400 hover:text-white underline transition-colors">
+      Reset Game
+    </button>
+  </footer>
+
+  <dialog id="againDialog" aria-labelledby="againDialogTitle" class="w-[calc(100%-2rem)] max-w-sm rounded-2xl border border-rose-500/60 bg-slate-900 p-6 text-white shadow-2xl backdrop:bg-slate-950/80">
+    <h2 id="againDialogTitle" class="mb-5 text-center text-xl font-black text-rose-200">ပါးထပ်ချအုံးမလား?</h2>
+    <div class="flex flex-col gap-3">
+      <button id="continueSlapBtn" type="button" class="rounded-xl bg-gradient-to-r from-amber-500 to-red-500 px-4 py-3 font-bold text-slate-950 transition-colors hover:from-amber-400 hover:to-red-400">
+        ချအုံးမယ်
+      </button>
+      <button id="pauseSlapBtn" type="button" class="rounded-xl border border-slate-600 bg-slate-800 px-4 py-3 font-bold text-slate-100 transition-colors hover:bg-slate-700">
+        သနားလာလို့ ခနနားမယ်
+      </button>
+    </div>
+  </dialog>
+
+  <script>
+    const tapBtn = document.getElementById('tapBtn');
+    const btnText = document.getElementById('btnText');
+    const resetBtn = document.getElementById('resetBtn');
+    const againDialog = document.getElementById('againDialog');
+    const continueSlapBtn = document.getElementById('continueSlapBtn');
+    const pauseSlapBtn = document.getElementById('pauseSlapBtn');
+    const icon1 = document.getElementById('icon1');
+    const battleStage = document.getElementById('battleStage');
+    const slapHand = document.getElementById('slapHand');
+    const targetImage = document.getElementById('targetImage');
+    const slapperImage = document.getElementById('slapperImage');
+    const damageTextEl = document.getElementById('damageText');
+    const impactText = document.getElementById('impactText');
+    const dizzyOverlay = document.getElementById('dizzyOverlay');
+    const effectsContainer = document.getElementById('effectsContainer');
+    const dialogText = document.getElementById('dialogText');
+    const dialogBox = document.getElementById('dialogBox');
+    const targetDialogText = document.getElementById('targetDialogText');
+    const targetDialogBox = document.getElementById('targetDialogBox');
+
+    let count = 0;
+    let damage = 0;
+    let bonusAt = randomSlapInterval();
+    let audioCtx;
+    let audioMaster;
+    let impactTimer;
+    let bonusTimer;
+
+    function randomSlapInterval() {
+      return Math.floor(Math.random() * 6) + 5;
+    }
+
+    function updateTargetImage() {
+      if (damage <= 9) {
+        targetImage.src = '0t10.jpg';
+        targetImage.alt = `Target at ${damage}% damage`;
+        return;
+      }
+
+      const imageLevel = damage < 30 ? 10 : damage < 50 ? 30 : damage < 70 ? 50 : damage < 90 ? 70 : 90;
+      targetImage.src = `${imageLevel}%25.png`;
+      targetImage.alt = `Target at ${imageLevel}% damage`;
+    }
+
+    function updateSlapperImage() {
+      if (damage <= 9) {
+        slapperImage.src = 'h0t9.jpg';
+        slapperImage.alt = `Slapper at ${damage}% damage`;
+        return;
+      }
+
+      const imageLevel = damage < 30 ? 10 : damage < 50 ? 30 : damage < 70 ? 50 : damage < 71 ? 70 : 100;
+      slapperImage.src = `h${imageLevel}%25.jpg`;
+      slapperImage.alt = `Slapper at ${imageLevel}% damage`;
+    }
+
+    // Sound Synthesizer for Slap Effect
+    function playSlapSound(isBonus = false) {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+
+      try {
+        audioCtx ||= new AudioContextClass();
+        if (!audioMaster) {
+          const compressor = audioCtx.createDynamicsCompressor();
+          compressor.threshold.value = -12;
+          compressor.knee.value = 8;
+          compressor.ratio.value = 8;
+          compressor.attack.value = 0.003;
+          compressor.release.value = 0.18;
+          audioMaster = audioCtx.createGain();
+          audioMaster.gain.value = 0.72;
+          audioMaster.connect(compressor);
+          compressor.connect(audioCtx.destination);
+        }
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume().catch((error) => console.warn('Could not resume slap sound:', error));
+        }
+
+        const now = audioCtx.currentTime;
+        const volume = isBonus ? 1.55 : 1;
+        const bufferSize = Math.floor(audioCtx.sampleRate * (isBonus ? 0.14 : 0.075));
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+        const crack = audioCtx.createBufferSource();
+        crack.buffer = buffer;
+        const crackFilter = audioCtx.createBiquadFilter();
+        crackFilter.type = 'bandpass';
+        crackFilter.frequency.setValueAtTime(isBonus ? 1500 : 1250, now);
+        crackFilter.Q.value = 0.7;
+        const crackGain = audioCtx.createGain();
+        crackGain.gain.setValueAtTime(0.0001, now);
+        crackGain.gain.linearRampToValueAtTime(0.48 * volume, now + 0.004);
+        crackGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.065);
+        crack.connect(crackFilter);
+        crackFilter.connect(crackGain);
+        crackGain.connect(audioMaster);
+        crack.start(now);
+
+        const bodyNoise = audioCtx.createBufferSource();
+        bodyNoise.buffer = buffer;
+        const bodyFilter = audioCtx.createBiquadFilter();
+        bodyFilter.type = 'lowpass';
+        bodyFilter.frequency.setValueAtTime(420, now);
+        const bodyGain = audioCtx.createGain();
+        bodyGain.gain.setValueAtTime(0.0001, now);
+        bodyGain.gain.linearRampToValueAtTime((isBonus ? 0.48 : 0.3) * volume, now + 0.006);
+        bodyGain.gain.exponentialRampToValueAtTime(0.0001, now + (isBonus ? 0.15 : 0.09));
+        bodyNoise.connect(bodyFilter);
+        bodyFilter.connect(bodyGain);
+        bodyGain.connect(audioMaster);
+        bodyNoise.start(now);
+
+        const thump = audioCtx.createOscillator();
+        thump.type = 'sine';
+        thump.frequency.setValueAtTime(isBonus ? 175 : 120, now);
+        thump.frequency.exponentialRampToValueAtTime(isBonus ? 38 : 48, now + (isBonus ? 0.14 : 0.085));
+        const thumpGain = audioCtx.createGain();
+        thumpGain.gain.setValueAtTime(0.0001, now);
+        thumpGain.gain.linearRampToValueAtTime((isBonus ? 0.55 : 0.35) * volume, now + 0.005);
+        thumpGain.gain.exponentialRampToValueAtTime(0.0001, now + (isBonus ? 0.16 : 0.095));
+        thump.connect(thumpGain);
+        thumpGain.connect(audioMaster);
+        thump.start(now);
+        thump.stop(now + (isBonus ? 0.17 : 0.1));
+
+        if (isBonus) {
+          const slamNoise = audioCtx.createBufferSource();
+          slamNoise.buffer = buffer;
+          const slamFilter = audioCtx.createBiquadFilter();
+          slamFilter.type = 'lowpass';
+          slamFilter.frequency.setValueAtTime(230, now + 0.025);
+          const slamGain = audioCtx.createGain();
+          slamGain.gain.setValueAtTime(0.0001, now + 0.025);
+          slamGain.gain.linearRampToValueAtTime(0.7, now + 0.035);
+          slamGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.19);
+          slamNoise.connect(slamFilter);
+          slamFilter.connect(slamGain);
+          slamGain.connect(audioMaster);
+          slamNoise.start(now + 0.025);
+        }
+      } catch (error) {
+        console.warn('Could not play slap sound:', error);
+      }
+    }
+
+    // Trigger hit spark particles
+    function createHitParticles() {
+      const rect = icon1.getBoundingClientRect();
+      const parentRect = effectsContainer.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2 - parentRect.left;
+      const centerY = rect.top + rect.height / 2 - parentRect.top;
+
+      for (let i = 0; i < 6; i++) {
+        const star = document.createElement('span');
+        star.className = 'hit-star text-yellow-300 text-xl';
+        star.textContent = '✨';
+        star.setAttribute('aria-hidden', 'true');
+        const angle = Math.random() * Math.PI * 2;
+        const distance = 40 + Math.random() * 40;
+        const tx = Math.cos(angle) * distance;
+        const ty = Math.sin(angle) * distance;
+
+        star.style.left = `${centerX}px`;
+        star.style.top = `${centerY}px`;
+        star.style.setProperty('--tx', `${tx}px`);
+        star.style.setProperty('--ty', `${ty}px`);
+
+        effectsContainer.appendChild(star);
+        setTimeout(() => star.remove(), 500);
+      }
+    }
+
+    // Update Dialog and state based on exact damage requirements
+    function updateDialogMessage() {
+      if (damage < 10) {
+        dialogBox.className = 'target-speech hidden border border-amber-400/50 p-3 text-center';
+        dialogText.textContent = '';
+        targetDialogBox.className = 'target-speech hidden border border-amber-400/50 p-3 text-center';
+        targetDialogText.textContent = '';
+        return;
+      }
+
+      const baseStyle = 'target-speech border p-3 text-center';
+      let targetMessage;
+      let targetClassName;
+      if (damage <= 10) {
+        targetMessage = '';
+        targetClassName = 'target-speech hidden border border-amber-400/50 p-3 text-center';
+      } else if (damage < 30) {
+        targetMessage = 'မနာသေးပါဘူး ဗလပ် ဗလပ်';
+        targetClassName = `${baseStyle} bg-slate-900/90 border border-amber-500/40 shadow-inner`;
+      } else if (damage < 50) {
+        targetMessage = 'အားကောပါရဲ့လား';
+        targetClassName = `${baseStyle} bg-yellow-950/80 border border-yellow-500 shadow-inner animate-pulse`;
+      } else if (damage < 70) {
+        targetMessage = 'တကယ်ရိုက်တာဗျ အမလေးဗျ';
+        targetClassName = `${baseStyle} bg-orange-950/80 border border-orange-500 shadow-inner`;
+      } else if (damage < 100) {
+        targetMessage = 'ကြောက်ပါပြီဗျ နောက်မလုပ်တော့ပါဘူး ရပ်ပါတော့ဗျ';
+        targetClassName = `${baseStyle} bg-red-950/80 border border-red-500 shadow-inner`;
+      } else {
+        targetMessage = 'အမလေးသေပါပြီဗျ';
+        targetClassName = `${baseStyle} bg-rose-950 border-2 border-rose-600 shadow-lg target-speech-emphasized`;
+      }
+
+      targetDialogText.textContent = targetMessage;
+      targetDialogBox.className = targetClassName;
+      if (damage < 30) {
+        dialogText.textContent = 'ဘာပြောတယ်';
+        dialogBox.className = `${baseStyle} bg-slate-900/90 border border-amber-500/40 shadow-inner`;
+      } else if (damage < 50) {
+        dialogText.textContent = 'အရမ်းအာချောင်တယ်နော်';
+        dialogBox.className = `${baseStyle} bg-yellow-950/80 border border-yellow-500 shadow-inner animate-pulse`;
+      } else if (damage < 70) {
+        dialogText.textContent = 'မနာဘူးလို့ပြောအုံးလေ';
+        dialogBox.className = `${baseStyle} bg-orange-950/80 border border-orange-500 shadow-inner`;
+      } else if (damage < 90) {
+        dialogText.textContent = 'မှတ်ပြီလား မှတ်ပြီလား';
+        dialogBox.className = `${baseStyle} bg-red-950/80 border border-red-500 shadow-inner`;
+      } else {
+        dialogText.textContent = 'ကောင်းတယ် ကောင်းတယ်';
+        dialogBox.className = `${baseStyle} bg-rose-950 border-2 border-rose-600 shadow-lg target-speech-emphasized`;
+      }
+      dialogBox.classList.remove('hidden');
+    }
+
+    // Main Slap action
+    function performSlap() {
+      if (damage >= 100) {
+        resetGame();
+        return;
+      }
+
+      count++;
+      const bonusDamage = count >= bonusAt ? 3 : 0;
+      if (bonusDamage) bonusAt += randomSlapInterval();
+      damage = Math.min(100, damage + 1 + bonusDamage);
+      damageTextEl.textContent = `${damage}%`;
+      updateTargetImage();
+      updateSlapperImage();
+      playSlapSound(bonusDamage > 0);
+      if (navigator.vibrate) navigator.vibrate(bonusDamage ? 65 : 40);
+
+      slapHand.classList.remove('hand-slapping', 'bonus-slap');
+      icon1.classList.remove('getting-hit', 'bonus-hit');
+      battleStage.classList.remove('bonus-burst');
+      impactText.classList.remove('bonus-impact');
+      void slapHand.offsetWidth;
+      if (bonusDamage) {
+        slapHand.classList.add('bonus-slap');
+        icon1.classList.add('bonus-hit');
+        battleStage.classList.add('bonus-burst');
+        impactText.classList.add('bonus-impact');
+      } else {
+        slapHand.classList.add('hand-slapping');
+        icon1.classList.add('getting-hit');
+      }
+      createHitParticles();
+
+      clearTimeout(impactTimer);
+      impactText.textContent = bonusDamage ? 'BONUS +3%!' : 'SLAP!';
+      if (!bonusDamage) {
+        impactText.style.opacity = '1';
+        impactText.style.transform = 'scale(1.2) rotate(-10deg)';
+      }
+      impactTimer = setTimeout(() => {
+        impactText.style.opacity = '0';
+        impactText.style.transform = 'scale(0.5)';
+        impactText.classList.remove('bonus-impact');
+      }, bonusDamage ? 650 : 250);
+      if (bonusDamage) {
+        clearTimeout(bonusTimer);
+        bonusTimer = setTimeout(() => {
+          slapHand.classList.remove('bonus-slap');
+          icon1.classList.remove('bonus-hit');
+          battleStage.classList.remove('bonus-burst');
+        }, 650);
+      }
+
+      dizzyOverlay.style.opacity = damage >= 70 ? '1' : '0';
+      if (damage >= 100) {
+        btnText.textContent = 'PLAY AGAIN';
+        againDialog.showModal();
+      }
+      updateDialogMessage();
+    }
+
+    // Reset Game Function
+    function resetGame() {
+      if (againDialog.open) againDialog.close();
+      count = 0;
+      damage = 0;
+      bonusAt = randomSlapInterval();
+      damageTextEl.textContent = '0%';
+      clearTimeout(impactTimer);
+      clearTimeout(bonusTimer);
+      dizzyOverlay.style.opacity = '0';
+      updateTargetImage();
+      updateSlapperImage();
+      btnText.textContent = 'ပါးချည်ချပစ်မယ်';
+      impactText.style.opacity = '0';
+      impactText.style.transform = 'scale(0.5)';
+      icon1.classList.remove('getting-hit');
+      slapHand.classList.remove('hand-slapping', 'bonus-slap');
+      icon1.classList.remove('bonus-hit');
+      battleStage.classList.remove('bonus-burst');
+      impactText.classList.remove('bonus-impact');
+      effectsContainer.replaceChildren();
+      updateDialogMessage();
+    }
+
+    // Event Listeners
+    tapBtn.addEventListener('click', performSlap);
+    resetBtn.addEventListener('click', resetGame);
+    continueSlapBtn.addEventListener('click', resetGame);
+    pauseSlapBtn.addEventListener('click', () => {
+      againDialog.close();
+      tapBtn.focus();
+    });
+    icon1.addEventListener('click', performSlap);
+    icon1.addEventListener('keydown', (event) => {
+      if (event.code === 'Space' || event.code === 'Enter') {
+        event.preventDefault();
+        event.stopPropagation();
+        performSlap();
+      }
+    });
+
+    window.addEventListener('keydown', (event) => {
+      const target = event.target;
+      const isInteractive = target instanceof HTMLElement &&
+        (target.isContentEditable || target.matches('input, textarea, select, button, a, [role="button"]'));
+
+      if (event.code === 'Space' && !event.repeat && !isInteractive) {
+        event.preventDefault();
+        performSlap();
+      }
+    });
+
+    updateDialogMessage();
+  </script>
+</body>
+</html>
